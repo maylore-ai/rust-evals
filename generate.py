@@ -1,10 +1,12 @@
 import argparse
+import http.client
 import json
+import os
 import shutil
 import time
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from extract import extract
@@ -34,14 +36,14 @@ def complete(api, model, prompt, args):
                                      headers={"Content-Type": "application/json"})
     for attempt in range(1, ATTEMPTS + 1):
         try:
-            with urllib.request.urlopen(request, timeout=1800) as response:
+            with urllib.request.urlopen(request) as response:
                 choices = sorted(json.load(response)["choices"], key=lambda choice: choice["index"])
             return [choice["message"]["content"] or "" for choice in choices]
         except urllib.error.HTTPError as error:
             failure = f"HTTP {error.code}: {error.read().decode(errors='replace')[:1000]}"
             if error.code < 500:
                 raise RuntimeError(failure) from error
-        except (urllib.error.URLError, TimeoutError) as error:
+        except (OSError, http.client.HTTPException) as error:
             failure = str(error)
         if attempt == ATTEMPTS:
             raise RuntimeError(f"{ATTEMPTS} attempts failed, last: {failure}")
@@ -77,10 +79,18 @@ def main():
             temporary = path.with_suffix(".tmp")
             temporary.write_text(json.dumps(replies))
             temporary.rename(path)
-        print(f"[{index + 1}/{len(prompts)}]", flush=True)
 
-    with ThreadPoolExecutor(args.parallel) as pool:
-        list(pool.map(one, range(len(prompts))))
+    pool = ThreadPoolExecutor(args.parallel)
+    try:
+        futures = [pool.submit(one, index) for index in range(len(prompts))]
+        for done, future in enumerate(as_completed(futures), 1):
+            future.result()
+            print(f"[{done}/{len(prompts)}]", flush=True)
+    except KeyboardInterrupt:
+        pool.shutdown(wait=False, cancel_futures=True)
+        os._exit(130)
+    finally:
+        pool.shutdown(cancel_futures=True)
     replies = [json.loads((partial / f"{name}.json").read_text()) for name in names]
     (args.out / "replies.json").write_text(json.dumps(replies))
     generations = [[extract(prompt, reply) for reply in group] for prompt, group in zip(prompts, replies)]

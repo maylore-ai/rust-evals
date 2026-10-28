@@ -12,7 +12,7 @@ while getopts s:g:o:m:a: opt; do
         g) GPUS=$OPTARG ;;
         o) OUT=$OPTARG ;;
         m) MEMORY=$OPTARG ;;
-        a) read -ra EXTRA <<< "$OPTARG" ;;
+        a) read -ra MORE <<< "$OPTARG"; EXTRA+=("${MORE[@]}") ;;
         *) usage ;;
     esac
 done
@@ -28,8 +28,11 @@ done
 systemd-run --user --scope -q true 2> /dev/null || { echo "systemd-run --user is required to cap memory of generated programs"; exit 1; }
 [ -x "$ROOT/.venv/bin/python" ] || { echo "no $ROOT/.venv, run setup.sh first"; exit 1; }
 
-SHARED=$(for MODEL in "$@"; do basename "$MODEL"; done | sort | uniq -d)
-[ -z "$SHARED" ] || { echo "models share a result name: "$SHARED; exit 1; }
+source_of() {
+    if [ -d "$1" ]; then realpath "$1"; else echo "$1"; fi
+}
+SHARED=$(for MODEL in "$@"; do basename "$(source_of "$MODEL")"; done | sort | uniq -d | paste -sd ' ')
+[ -z "$SHARED" ] || { echo "models share a result name: $SHARED"; exit 1; }
 OUT=$(realpath -m "$OUT")
 PORT=$((8000 + 10#${GPUS%%,*}))
 API=http://localhost:$PORT/v1
@@ -58,9 +61,18 @@ serve() {
     done
 }
 
+claim() {
+    mkdir -p "$1"
+    [ -f "$1/model" ] || echo "$2" > "$1/model"
+    [ "$(cat "$1/model")" = "$2" ] || { echo "$1 holds results of $(cat "$1/model"), not $2"; exit 1; }
+}
+
 for MODEL in "$@"; do
-    [ ! -d "$MODEL" ] || MODEL=$(realpath "$MODEL")
+    MODEL=$(source_of "$MODEL")
     NAME=$(basename "$MODEL")
+    for SUITE in ${SUITES//,/ }; do
+        claim "$OUT/$SUITE/$NAME" "$MODEL"
+    done
     for SUITE in ${SUITES//,/ }; do
         DIR=$OUT/$SUITE/$NAME
         [ ! -f "$DIR/generations.json" ] || continue
@@ -76,7 +88,8 @@ for MODEL in "$@"; do
         echo "== $NAME: scoring $SUITE"
         SCRATCH=$(mktemp -d)
         TMPDIR=$SCRATCH systemd-run --user --scope -p MemoryMax=12G -p MemorySwapMax=0 -p OOMPolicy=continue -q -- \
-            python "$ROOT/score.py" --suite $SUITE --out "$DIR" > "$OUT/logs/score-$SUITE-$NAME.log" 2>&1
+            python "$ROOT/score.py" --suite $SUITE --out "$DIR" > "$OUT/logs/score-$SUITE-$NAME.log" 2>&1 \
+            || { tail -20 "$OUT/logs/score-$SUITE-$NAME.log"; exit 1; }
         cleanup
     done
 done

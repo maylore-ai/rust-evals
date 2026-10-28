@@ -1,5 +1,5 @@
+import argparse
 import json
-import sys
 from pathlib import Path
 
 from suite import SUITES
@@ -10,7 +10,9 @@ def cell(scores, key):
 
 
 def main():
-    root = Path(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=Path)
+    root = parser.parse_args().root
     scores = {}
     for suite in SUITES:
         for path in sorted(root.glob(f"{suite}/*/scores.json")):
