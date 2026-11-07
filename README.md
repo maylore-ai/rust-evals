@@ -92,7 +92,7 @@ Measured on two RTX 3060 12 GB with driver 580, vLLM 0.30.0, PyTorch 2.13.0+cu12
 | [Qwen2.5-Coder-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct) | 72.4 | 82.6 | 60.5 | 70.0 |
 | [Tessa-Rust-T1-7B](https://huggingface.co/Tesslate/Tessa-Rust-T1-7B) | 71.5 | 79.0 | 57.8 | 68.9 |
 | [Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B), thinking off | 66.2 | 81.4 | 57.7 | 73.4 |
-| Temper 2 Axon | 64.2 | 73.8 | 54.7 | 61.7 |
+| [Temper 2 Axon](https://huggingface.co/maylore-ai/Temper-2-Axon) | 64.2 | 73.8 | 54.7 | 61.7 |
 | [Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B), thinking off | 59.8 | 64.8 | 55.6 | 60.6 |
 | [Qwen2.5-Coder-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct) | 56.5 | 71.9 | 44.8 | 60.0 |
 | [Temper 1 1.5B](https://huggingface.co/maylore-ai/Temper-1-1.5B) | 54.1 | 68.8 | 48.6 | 59.2 |
